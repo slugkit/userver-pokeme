@@ -56,11 +56,14 @@ WebhookKeys::WebhookKeys(
         LOG_ERROR() << "pokeme: webhook key cache is inert (no management key, base-url or org-ref). "
                        "Callbacks will be refused as unsigned until it is configured.";
     }
-
-    StartPeriodicUpdates();
 }
 
-WebhookKeys::~WebhookKeys() { StopPeriodicUpdates(); }
+// Updates are started and stopped by `CachingComponentBase` itself in this
+// userver: `StartPeriodicUpdates` is private, and the `Early*` pair exists only
+// for a cache that must be warm inside its own constructor. This one must not
+// be — a service whose first key fetch is slow should still boot, which is what
+// `first-update-fail-ok` is for.
+WebhookKeys::~WebhookKeys() = default;
 
 auto WebhookKeys::Find(std::string_view key_id) const -> std::string {
     if (key_id.empty()) return {};
