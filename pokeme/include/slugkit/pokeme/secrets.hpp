@@ -43,9 +43,10 @@ namespace slugkit::pokeme {
 
 /// One block of the secdist document.
 struct Credentials {
-    /// Reads the org's webhook signing keys. Needs the `webhooks:read` scope
-    /// and nothing more — a key that could also publish would be a key a
-    /// webhook receiver had no business holding.
+    /// Reads the org's webhook signing keys. Needs the `webhook-keys:read`
+    /// scope and nothing more: poke-me split it from `webhooks:read` so the
+    /// service that verifies signatures holds one public key and has no business
+    /// knowing every URL the organisation reports to.
     std::string management_key;
     std::optional<std::string> base_url;
     std::optional<std::string> org_ref;

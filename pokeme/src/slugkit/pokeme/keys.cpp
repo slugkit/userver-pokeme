@@ -24,6 +24,29 @@ auto Trim(std::string url) -> std::string {
 
 }  // namespace
 
+auto ParseKeySet(const userver::formats::json::Value& document) -> KeySet {
+    KeySet keys;
+    // `items`, as poke-me's list endpoints all answer. Iterated through the
+    // member rather than defaulted: an answer without it is not an empty key
+    // set, it is an answer we do not understand, and replacing a working set
+    // with nothing on the strength of it would refuse every callback.
+    for (const auto& key : document["items"]) {
+        const auto algorithm = key["algorithm"].As<std::string>("Ed25519");
+        if (algorithm != "Ed25519") {
+            LOG_WARNING() << "pokeme: ignoring webhook key with unsupported algorithm '" << algorithm << "'";
+            continue;
+        }
+        auto id = key["key_id"].As<std::string>("");
+        auto public_key = key["public_key"].As<std::string>("");
+        if (id.empty() || public_key.empty()) continue;
+        // `retired` is deliberately not read. A retired key has stopped
+        // signing, not verifying; it stays until poke-me stops listing it at
+        // expiry, which is what replacing the whole set on each update gives.
+        keys.insert_or_assign(std::move(id), std::move(public_key));
+    }
+    return keys;
+}
+
 WebhookKeys::WebhookKeys(
     const userver::components::ComponentConfig& config,
     const userver::components::ComponentContext& context
@@ -107,24 +130,7 @@ auto WebhookKeys::Update(
                         .perform();
     response->raise_for_status();
 
-    const auto document = userver::formats::json::FromString(response->body());
-
-    auto keys = std::make_unique<KeySet>();
-    for (const auto& key : document["keys"]) {
-        // Ed25519 only. An algorithm we cannot verify is skipped rather than
-        // stored: holding it would let a future signature be refused as a *bad
-        // signature* — somebody lying — when it is really a scheme we have not
-        // learnt yet.
-        const auto algorithm = key["algorithm"].As<std::string>("Ed25519");
-        if (algorithm != "Ed25519") {
-            LOG_WARNING() << "pokeme: ignoring webhook key with unsupported algorithm '" << algorithm << "'";
-            continue;
-        }
-        auto id = key["key_id"].As<std::string>("");
-        auto public_key = key["public_key"].As<std::string>("");
-        if (id.empty() || public_key.empty()) continue;
-        keys->insert_or_assign(std::move(id), std::move(public_key));
-    }
+    auto keys = std::make_unique<KeySet>(ParseKeySet(userver::formats::json::FromString(response->body())));
 
     // Every key that can still verify something, which is why the whole set is
     // replaced rather than merged: poke-me omits expired keys, and merging
