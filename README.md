@@ -61,8 +61,9 @@ secdist, keyed by `secdist-key`:
 { "pokeme": { "default": { "management_key": "mk_…" } } }
 ```
 
-The management key needs `webhooks:read` and nothing more — a key that could
-also publish is one a webhook receiver has no business holding.
+The management key needs `webhook-keys:read` and nothing more. poke-me split it
+from `webhooks:read` deliberately: the service verifying signatures needs one
+public key, and has no business knowing every URL the organisation reports to.
 
 A handler then verifies against the **raw body**, never a re-serialised one:
 

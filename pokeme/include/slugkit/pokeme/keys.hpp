@@ -32,6 +32,7 @@
 
 #include <userver/cache/caching_component_base.hpp>
 #include <userver/clients/http/client.hpp>
+#include <userver/formats/json/value.hpp>
 #include <userver/server/http/http_request.hpp>
 #include <userver/yaml_config/schema.hpp>
 
@@ -41,6 +42,29 @@ namespace slugkit::pokeme {
 
 /// key id → base64url raw public key.
 using KeySet = std::unordered_map<std::string, std::string>;
+
+/// The key set out of poke-me's `GET /api/v1/orgs/{org}/webhook-keys` answer.
+///
+/// Pure, and separate from the cache's update, because the answer's shape is
+/// the one thing here that is poke-me's rather than ours — and a shape nothing
+/// checked independently is how this library first shipped reading a `keys`
+/// field poke-me has never sent. The answer is `{"items": [...]}`, one entry per
+/// key that can still verify something:
+///
+/// ```json
+/// { "items": [ { "key_id": "wk_…", "public_key": "<base64url>", "algorithm": "Ed25519",
+///                "not_before": "…", "expires_at": "…", "retired": false } ] }
+/// ```
+///
+/// A retired key is **kept**: it no longer signs, but it still verifies until
+/// it expires, and dropping it would refuse a batch signed just before the
+/// rotation. An algorithm other than Ed25519 is skipped, because holding it
+/// would turn a scheme we have not learnt into a "bad signature".
+///
+/// @throws userver::formats::json::Exception when the answer has no `items` —
+///         an update that fails keeps the previous set, which is the right
+///         outcome for a provider answering something we cannot read.
+[[nodiscard]] auto ParseKeySet(const userver::formats::json::Value& document) -> KeySet;
 
 class WebhookKeys final : public userver::components::CachingComponentBase<KeySet> {
 public:

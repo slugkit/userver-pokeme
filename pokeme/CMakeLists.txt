@@ -34,7 +34,7 @@ target_link_libraries(
 )
 
 if(USERVER_POKEME_BUILD_TESTS)
-    add_executable(slugkit-pokeme_unittest tests/webhook_test.cpp)
+    add_executable(slugkit-pokeme_unittest tests/webhook_test.cpp tests/keys_test.cpp)
     target_link_libraries(slugkit-pokeme_unittest PRIVATE ${PROJECT_NAME} userver::utest OpenSSL::Crypto)
     add_google_tests(slugkit-pokeme_unittest)
 endif()
