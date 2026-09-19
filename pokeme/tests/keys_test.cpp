@@ -37,8 +37,8 @@ TEST(PokeMeKeys, AnAnswerWithoutItemsIsNotAnEmptySet) {
     // The regression. An answer we cannot read must fail the update — which
     // keeps the previous keys — rather than replace them with nothing and
     // refuse every callback.
-    EXPECT_ANY_THROW(ParseKeySet(Json(R"({"keys": [{"key_id": "wk_1", "public_key": "PUB"}]})")));
-    EXPECT_ANY_THROW(ParseKeySet(Json(R"({})")));
+    EXPECT_ANY_THROW((void)ParseKeySet(Json(R"({"keys": [{"key_id": "wk_1", "public_key": "PUB"}]})")));
+    EXPECT_ANY_THROW((void)ParseKeySet(Json(R"({})")));
 }
 
 TEST(PokeMeKeys, AnEmptyListIsAnEmptySet) {
