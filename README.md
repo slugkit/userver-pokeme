@@ -98,6 +98,24 @@ can fetch. Refusing to boot would take a whole service down over an endpoint
 that only matters when a webhook arrives — and poke-me retries a failed delivery
 for 24 hours, so an outage here costs latency rather than events.
 
+## Metrics
+
+`WebhookKeys` writes to the statistics storage under `metrics-prefix`
+(default `pokeme.webhook`):
+
+| Metric | Labels | |
+|---|---|---|
+| `verifications` | `outcome`: `ok`, `malformed`, `stale`, `unknown_key`, `bad_signature` | rate, one per `VerifyRequest` |
+| `keys` | | gauge: keys the cache holds |
+| `configured` | | gauge: 1 when a management key, base URL and org resolved |
+
+The outcomes are kept apart for the reason `Refusal` is: `bad_signature` is
+somebody forging requests, `unknown_key` is our cache behind a rotation. Every
+outcome is written from the first scrape, zeros included, so a rate alert has a
+history to compare against. `keys` at zero while `configured` is one means every
+callback is being refused; how the fetches are going is in userver's own `cache`
+metrics under the component's name.
+
 ## Building
 
 The root `CMakeLists.txt` is a standalone harness that expects userver at

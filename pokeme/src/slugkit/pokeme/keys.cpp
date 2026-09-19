@@ -5,6 +5,7 @@
 #include <userver/clients/http/component.hpp>
 #include <userver/components/component_config.hpp>
 #include <userver/components/component_context.hpp>
+#include <userver/components/statistics_storage.hpp>
 #include <userver/formats/json/serialize.hpp>
 #include <userver/logging/log.hpp>
 #include <userver/storages/secdist/component.hpp>
@@ -79,6 +80,12 @@ WebhookKeys::WebhookKeys(
         LOG_ERROR() << "pokeme: webhook key cache is inert (no management key, base-url or org-ref). "
                        "Callbacks will be refused as unsigned until it is configured.";
     }
+    metrics_.SetConfigured(Configured() && !base_url_.empty() && !org_ref_.empty());
+
+    statistics_holder_ = context.FindComponent<userver::components::StatisticsStorage>().GetStorage().RegisterWriter(
+        config["metrics-prefix"].As<std::string>("pokeme.webhook"),
+        [this](userver::utils::statistics::Writer& writer) { writer = metrics_; }
+    );
 }
 
 // Updates are started and stopped by `CachingComponentBase` itself in this
@@ -86,7 +93,7 @@ WebhookKeys::WebhookKeys(
 // for a cache that must be warm inside its own constructor. This one must not
 // be — a service whose first key fetch is slow should still boot, which is what
 // `first-update-fail-ok` is for.
-WebhookKeys::~WebhookKeys() = default;
+WebhookKeys::~WebhookKeys() { statistics_holder_.Unregister(); }
 
 auto WebhookKeys::Find(std::string_view key_id) const -> std::string {
     if (key_id.empty()) return {};
@@ -102,9 +109,10 @@ auto WebhookKeys::VerifyRequest(const userver::server::http::HttpRequest& reques
     const auto& timestamp = request.GetHeader(std::string{kTimestampHeader});
     const auto& signature = request.GetHeader(std::string{kSignatureHeader});
 
-    if (key_id.empty()) return Refusal::kMalformed;
-
-    return VerifyWebhook(Find(key_id), timestamp, signature, body, max_age_);
+    const auto refusal =
+        key_id.empty() ? Refusal::kMalformed : VerifyWebhook(Find(key_id), timestamp, signature, body, max_age_);
+    metrics_.Account(refusal);
+    return refusal;
 }
 
 auto WebhookKeys::Update(
@@ -138,6 +146,7 @@ auto WebhookKeys::Update(
     const auto size = keys->size();
     stats_scope.IncreaseDocumentsReadCount(size);
     Set(std::move(keys));
+    metrics_.SetKeys(size);
     stats_scope.Finish(size);
 }
 
@@ -167,6 +176,13 @@ properties:
             material, so this is what actually stops a replay — a signature that
             was once valid stays valid for ever without it.
         defaultDescription: 5m
+    metrics-prefix:
+        type: string
+        description: >-
+            Where the verification counters and key gauges are written in the
+            statistics storage. A service with a curated exporter sets one its
+            allowlist already takes.
+        defaultDescription: pokeme.webhook
 )");
 }
 

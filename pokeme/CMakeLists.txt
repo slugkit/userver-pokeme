@@ -4,6 +4,7 @@ project(slugkit-pokeme CXX)
 
 set(${PROJECT_NAME}_SRC
     src/slugkit/pokeme/keys.cpp
+    src/slugkit/pokeme/metrics.cpp
     src/slugkit/pokeme/secrets.cpp
     src/slugkit/pokeme/webhook.cpp
 )
@@ -11,6 +12,7 @@ set(${PROJECT_NAME}_SRC
 set(${PROJECT_NAME}_HEADERS
     include/slugkit/pokeme/fwd.hpp
     include/slugkit/pokeme/keys.hpp
+    include/slugkit/pokeme/metrics.hpp
     include/slugkit/pokeme/secrets.hpp
     include/slugkit/pokeme/webhook.hpp
 )
@@ -34,7 +36,7 @@ target_link_libraries(
 )
 
 if(USERVER_POKEME_BUILD_TESTS)
-    add_executable(slugkit-pokeme_unittest tests/webhook_test.cpp tests/keys_test.cpp)
+    add_executable(slugkit-pokeme_unittest tests/webhook_test.cpp tests/keys_test.cpp tests/metrics_test.cpp)
     target_link_libraries(slugkit-pokeme_unittest PRIVATE ${PROJECT_NAME} userver::utest OpenSSL::Crypto)
     add_google_tests(slugkit-pokeme_unittest)
 endif()
