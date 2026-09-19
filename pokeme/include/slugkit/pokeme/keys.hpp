@@ -34,8 +34,10 @@
 #include <userver/clients/http/client.hpp>
 #include <userver/formats/json/value.hpp>
 #include <userver/server/http/http_request.hpp>
+#include <userver/utils/statistics/entry.hpp>
 #include <userver/yaml_config/schema.hpp>
 
+#include <slugkit/pokeme/metrics.hpp>
 #include <slugkit/pokeme/webhook.hpp>
 
 namespace slugkit::pokeme {
@@ -89,6 +91,10 @@ public:
 
     /// Verify a whole request: headers, window, signature.
     ///
+    /// Every call is counted by outcome (slugkit/pokeme/metrics.hpp), so a
+    /// consumer gets the forgery-versus-rotation split on a dashboard without
+    /// counting anything itself.
+    ///
     /// The body is passed rather than read from @p request because a handler
     /// deriving from `HttpHandlerJsonBase` has already consumed it, and
     /// verifying a *re-serialised* body would compare a signature against
@@ -111,6 +117,13 @@ private:
     std::string management_key_;
     std::chrono::milliseconds timeout_;
     std::chrono::seconds max_age_;
+
+    /// Mutable because verifying is logically const — it answers a question —
+    /// and counting the answer is bookkeeping about the call, not a change to
+    /// what the component holds.
+    mutable WebhookMetrics metrics_;
+    /// Last, so it is torn down first: the writer reads `metrics_`.
+    userver::utils::statistics::Entry statistics_holder_;
 };
 
 }  // namespace slugkit::pokeme
