@@ -14,9 +14,20 @@
 
 #include <slugkit/pokeme/secrets.hpp>
 
+#include <chrono>
+
 namespace slugkit::pokeme {
 
 namespace {
+
+/// How long one call to poke-me's key endpoint may take. Short: the key set is
+/// refreshed in the background and a slow answer is better dropped than waited
+/// on, because the previous set is still good.
+constexpr std::chrono::seconds kTimeoutDefault{10};
+
+/// How old a callback's signature may be before it is refused. Bounds clock
+/// skew and delivery delay, not an attacker's window.
+constexpr std::chrono::minutes kMaxSignatureAgeDefault{5};
 
 auto Trim(std::string url) -> std::string {
     while (!url.empty() && url.back() == '/') url.pop_back();
@@ -56,8 +67,8 @@ WebhookKeys::WebhookKeys(
     , http_{context.FindComponent<userver::components::HttpClient>().GetHttpClient()}
     , base_url_{Trim(config["base-url"].As<std::string>(""))}
     , org_ref_{config["org-ref"].As<std::string>("")}
-    , timeout_{config["timeout"].As<std::chrono::milliseconds>(std::chrono::seconds{10})}
-    , max_age_{config["max-signature-age"].As<std::chrono::seconds>(std::chrono::minutes{5})} {
+    , timeout_{config["timeout"].As<std::chrono::milliseconds>(kTimeoutDefault)}
+    , max_age_{config["max-signature-age"].As<std::chrono::seconds>(kMaxSignatureAgeDefault)} {
     if (const auto key = config["secdist-key"].As<std::string>(""); !key.empty()) {
         const auto& secrets = context.FindComponent<userver::components::Secdist>().Get().Get<Secrets>();
         if (const auto* credentials = secrets.Find(key)) {
