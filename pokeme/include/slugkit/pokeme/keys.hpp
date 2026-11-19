@@ -34,7 +34,6 @@
 #include <userver/clients/http/client.hpp>
 #include <userver/formats/json/value.hpp>
 #include <userver/server/http/http_request.hpp>
-#include <userver/utils/statistics/entry.hpp>
 #include <userver/yaml_config/schema.hpp>
 
 #include <slugkit/pokeme/metrics.hpp>
@@ -121,9 +120,6 @@ private:
     /// Mutable because verifying is logically const — it answers a question —
     /// and counting the answer is bookkeeping about the call, not a change to
     /// what the component holds.
-    mutable WebhookMetrics metrics_;
-    /// Last, so it is torn down first: the writer reads `metrics_`.
-    userver::utils::statistics::Entry statistics_holder_;
-};
+    mutable WebhookMetrics metrics_;};
 
 }  // namespace slugkit::pokeme

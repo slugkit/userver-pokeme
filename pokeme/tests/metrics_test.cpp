@@ -1,6 +1,7 @@
 /// What the webhook side reports, read back the way a scrape reads it.
 
 #include <userver/utest/utest.hpp>
+#include <userver/utils/resource_scopes.hpp>
 #include <userver/utils/statistics/storage.hpp>
 #include <userver/utils/statistics/testing.hpp>
 
@@ -16,7 +17,13 @@ using userver::utils::statistics::Storage;
 
 auto Read(const WebhookMetrics& metrics) -> Snapshot {
     Storage storage;
-    auto holder = storage.RegisterWriter("pokeme.webhook", [&metrics](auto& writer) { writer = metrics; });
+    // After `storage`, so it closes first; `AfterConstruction` opens the scope.
+    // Owned by hand: the scope wrappers bracket an object's construction, and
+    // the subject here is a plain metrics struct the test already holds. The
+    // tag is what `WithResourceScopes` itself uses internally.
+    userver::utils::ResourceScopeStorage scopes{userver::utils::UnsafeManualResourceScopes{}};
+    storage.RegisterWriter(scopes, "pokeme.webhook", [&metrics](auto& writer) { writer = metrics; });
+    scopes.AfterConstruction();
     return Snapshot{storage, "pokeme.webhook"};
 }
 
