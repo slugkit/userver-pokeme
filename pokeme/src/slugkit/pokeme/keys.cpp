@@ -93,7 +93,14 @@ WebhookKeys::WebhookKeys(
     }
     metrics_.SetConfigured(Configured() && !base_url_.empty() && !org_ref_.empty());
 
-    statistics_holder_ = context.FindComponent<userver::components::StatisticsStorage>().GetStorage().RegisterWriter(
+    // Scoped, so the writer is unregistered before the destructor starts and
+    // so before `metrics_`, which it reads, goes. That ordering was what the
+    // replaced `Entry` member was declared last to get; it is a property of
+    // the registration now rather than of the declaration order. It also
+    // defers registration until the whole component is built, which a cache
+    // wants more than most.
+    userver::utils::statistics::RegisterWriterScope(
+        context,
         config["metrics-prefix"].As<std::string>("pokeme.webhook"),
         [this](userver::utils::statistics::Writer& writer) { writer = metrics_; }
     );
@@ -104,7 +111,7 @@ WebhookKeys::WebhookKeys(
 // for a cache that must be warm inside its own constructor. This one must not
 // be — a service whose first key fetch is slow should still boot, which is what
 // `first-update-fail-ok` is for.
-WebhookKeys::~WebhookKeys() { statistics_holder_.Unregister(); }
+WebhookKeys::~WebhookKeys() = default;
 
 auto WebhookKeys::Find(std::string_view key_id) const -> std::string {
     if (key_id.empty()) return {};
